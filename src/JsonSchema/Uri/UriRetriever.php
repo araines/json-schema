@@ -95,7 +95,7 @@ class UriRetriever
     public function resolvePointer($jsonSchema, $uri)
     {
         $resolver = new UriResolver();
-        $parsed = $resolver->parse($uri);
+        $parsed = $this->parse($uri);
         if (empty($parsed['fragment'])) {
             return $jsonSchema;
         }
@@ -140,10 +140,10 @@ class UriRetriever
         $resolvedUri = $fetchUri = $resolver->resolve($uri, $baseUri);
 
         //fetch URL without #fragment
-        $arParts = $resolver->parse($resolvedUri);
+        $arParts = $this->parse($resolvedUri);
         if (isset($arParts['fragment'])) {
             unset($arParts['fragment']);
-            $fetchUri = $resolver->generate($arParts);
+            $fetchUri = $this->generate($arParts);
         }
 
         $jsonSchema = $this->loadSchema($fetchUri);

@@ -12,6 +12,7 @@ namespace JsonSchema;
 use JsonSchema\Exception\JsonDecodingException;
 use JsonSchema\Uri\Retrievers\UriRetrieverInterface;
 use JsonSchema\Uri\UriRetriever;
+use JsonSchema\Uri\UriResolver;
 
 /**
  * Take in an object that's a JSON schema and take care of all $ref references
@@ -101,25 +102,14 @@ class RefResolver
      */
     public function resolve($schema, $sourceUri = null)
     {
-        if (self::$depth > self::$maxDepth) {
-            throw new JsonDecodingException(JSON_ERROR_DEPTH);
-        }
-        ++self::$depth;
+        // First determine our resolution scope
+        $scope = $this->getResolutionScope($schema, $sourceUri);
 
-        if (! is_object($schema)) {
-            --self::$depth;
-            return;
-        }
-
-        if (null === $sourceUri && ! empty($schema->id)) {
-            $sourceUri = $schema->id;
-        }
-
-        if (null === $this->rootSchema) {
+        // hack
+        if ($this->rootSchema == null)
             $this->rootSchema = $schema;
-        }
 
-        // Resolve $ref first
+        // Resolve $ref
         $this->resolveRef($schema, $sourceUri);
 
         // These properties are just schemas
@@ -141,6 +131,24 @@ class RefResolver
         }
 
         --self::$depth;
+    }
+
+    /**
+     * Returns the resolution scope for the given schema (partial).
+     * Inspects the partial for the presence of 'id' and then returns that as a absolute uri.
+     *
+     * @param  object $schemaPartial JSON Schema (or part thereof) to get the resolution scope for
+     * @param  string $sourceUri     URI where this schema was located
+     * @return string
+     */
+    private function getResolutionScope($schemaPartial, $sourceUri)
+    {
+        if (!empty($schemaPartial->id)) {
+            $resolver = new UriResolver();
+            $sourceUri = $resolver->resolve($schemaPartial->id, $sourceUri);
+        }
+
+        return $sourceUri;
     }
 
     /**
