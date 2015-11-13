@@ -72,6 +72,21 @@ class UriResolver
         return $this->build($uri);
     }
 
+    public function extractLocation($uri)
+    {
+        $parts = $this->parse($uri);
+        unset($parts['fragment']);
+
+        return $this->build($parts);
+    }
+
+    public function extractFragment($uri)
+    {
+        $parts = $this->parse($uri);
+
+        return $this->build(array('fragment' => $parts['fragment']));
+    }
+
     /**
      * @param string $uri
      * @return boolean
@@ -120,6 +135,12 @@ class UriResolver
         $parts = parse_url($uri);
         if (false === $parts) {
             throw new UriResolverException("URI $uri was malformed and could not be parsed");
+        }
+
+        // Deal with special case where we are self-referencing - parse_url
+        // does not handle this well (empty array)
+        if (trim($uri) === '#') {
+            $parts['fragment'] = '';
         }
 
         return $parts;
