@@ -248,6 +248,9 @@ class RefResolver
         foreach (get_object_vars($refSchema) as $prop => $value) {
             $schema->$prop = $value;
         }
+
+        // Check for nested references
+        $this->resolveRef($schema, $sourceUri);
     }
 
     /**

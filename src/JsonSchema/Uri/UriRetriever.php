@@ -15,6 +15,8 @@ use JsonSchema\Validator;
 use JsonSchema\Exception\InvalidSchemaMediaTypeException;
 use JsonSchema\Exception\JsonDecodingException;
 use JsonSchema\Exception\ResourceNotFoundException;
+use Rs\Json\Pointer;
+use Rs\Json\Pointer\NonexistentValueReferencedException;
 
 /**
  * Retrieves JSON Schema URIs
@@ -100,28 +102,12 @@ class UriRetriever
             return $jsonSchema;
         }
 
-        $path = explode('/', $parsed['fragment']);
-        while ($path) {
-            $pathElement = array_shift($path);
-            if (! empty($pathElement)) {
-                $pathElement = str_replace('~1', '/', $pathElement);
-                $pathElement = str_replace('~0', '~', $pathElement);
-                if (! empty($jsonSchema->$pathElement)) {
-                    $jsonSchema = $jsonSchema->$pathElement;
-                } else {
-                    throw new ResourceNotFoundException(
-                        'Fragment "' . $parsed['fragment'] . '" not found'
-                        . ' in ' . $uri
-                    );
-                }
+        $pointer = new Pointer(json_encode($jsonSchema));
 
-                if (! is_object($jsonSchema)) {
-                    throw new ResourceNotFoundException(
-                        'Fragment part "' . $pathElement . '" is no object '
-                        . ' in ' . $uri
-                    );
-                }
-            }
+        try {
+            $jsonSchema = json_decode(json_encode($pointer->get($parsed['fragment'])));
+        } catch (NonexistentValueReferencedException $e) {
+            throw new ResourceNotFoundException($e->getMessage());
         }
 
         return $jsonSchema;
