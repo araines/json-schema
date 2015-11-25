@@ -9,14 +9,13 @@
 
 namespace JsonSchema\Uri;
 
+use JsonSchema\Pointer;
 use JsonSchema\Uri\Retrievers\FileGetContents;
 use JsonSchema\Uri\Retrievers\UriRetrieverInterface;
 use JsonSchema\Validator;
 use JsonSchema\Exception\InvalidSchemaMediaTypeException;
 use JsonSchema\Exception\JsonDecodingException;
 use JsonSchema\Exception\ResourceNotFoundException;
-use Rs\Json\Pointer;
-use Rs\Json\Pointer\NonexistentValueReferencedException;
 
 /**
  * Retrieves JSON Schema URIs
@@ -102,15 +101,9 @@ class UriRetriever
             return $jsonSchema;
         }
 
-        $pointer = new Pointer(json_encode($jsonSchema));
+        $pointer = new Pointer($jsonSchema);
 
-        try {
-            $jsonSchema = json_decode(json_encode($pointer->get($parsed['fragment'])));
-        } catch (NonexistentValueReferencedException $e) {
-            throw new ResourceNotFoundException($e->getMessage());
-        }
-
-        return $jsonSchema;
+        return $pointer->get($parsed['fragment']);
     }
 
     /**
