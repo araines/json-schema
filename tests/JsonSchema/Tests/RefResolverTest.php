@@ -44,7 +44,7 @@ class RefResolverTest extends \PHPUnit_Framework_TestCase
                     'resolveRef' => 1,
                     'resolveProperty' => 4,
                     'resolveArrayOfSchemas' => 7,
-                    'resolveObjectOfSchemas' => 3
+                    'resolveObjectOfSchemas' => 4
                 )
             )
         );
@@ -333,26 +333,5 @@ JSN
         $resolver->setUriRetriever($retriever);
 
         $this->assertEquals($jsonSchema, $resolver->fetchRef($ref, $sourceUri));
-    }
-
-    /**
-     * @expectedException \JsonSchema\Exception\JsonDecodingException
-     */
-    public function testMaxDepthExceeded()
-    {
-        // stub schema
-        $jsonSchema = new \stdClass;
-        $jsonSchema->id = 'stub';
-        $jsonSchema->additionalItems = 'stub';
-
-        // mock retriever
-        $retriever = $this->getMock('JsonSchema\Uri\UriRetriever', array('retrieve'));
-        $retriever->expects($this->any())->method('retrieve')->will($this->returnValue($jsonSchema));
-
-        // stub resolver
-        \JsonSchema\RefResolver::$maxDepth = 0;
-        $resolver = new \JsonSchema\RefResolver($retriever);
-
-        $resolver->resolve($jsonSchema);
     }
 }

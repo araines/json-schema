@@ -79,6 +79,10 @@ class RefResolver
         $retriever = $this->getUriRetriever();
         $object = $retriever->resolvePointer($schema, $fragment);
 
+        if ($object instanceof \stdClass) {
+            $object->id = $uri;
+        }
+
         return $object;
     }
 
@@ -113,6 +117,10 @@ class RefResolver
      */
     public function resolve($schema, $sourceUri = null)
     {
+        if (!is_object($schema)) {
+            return;
+        }
+
         // First determine our resolution scope
         $scope = $this->getResolutionScope($schema, $sourceUri);
 
@@ -130,7 +138,7 @@ class RefResolver
         }
 
         // These are all objects containing properties whose values are schemas
-        foreach (array('dependencies', 'patternProperties', 'properties') as $propertyName) {
+        foreach (array('definitions', 'dependencies', 'patternProperties', 'properties') as $propertyName) {
             $this->resolveObjectOfSchemas($schema, $propertyName, $scope);
         }
 
