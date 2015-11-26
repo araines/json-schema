@@ -54,8 +54,10 @@ class UriResolver
         // Join the base URI path with the new path
         if (isset($parts['path'])) {
             if (isset($uri['path'])) {
-                $uri['path'] = rtrim(str_replace(basename($uri['path']), '', $uri['path']), '/');
-                $uri['path'] .= '/' . ltrim($parts['path'], '/');
+                if (substr($uri['path'], -1) !== '/') {
+                    $uri['path'] = rtrim(str_replace(basename($uri['path']), '', $uri['path']), '/') . '/';
+                }
+                $uri['path'] .= ltrim($parts['path'], '/');
             } else {
                 $uri['path'] = $parts['path'];
             }
