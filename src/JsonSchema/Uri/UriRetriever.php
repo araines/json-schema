@@ -103,7 +103,13 @@ class UriRetriever
 
         $pointer = new Pointer($jsonSchema);
 
-        return $pointer->get($parsed['fragment']);
+        $reference = $pointer->get($parsed['fragment']);
+
+        if (!is_object($reference)) {
+            throw new ResourceNotFoundException("Pointer was not an object");
+        }
+
+        return $reference;
     }
 
     /**
@@ -229,30 +235,6 @@ class UriRetriever
         }
 
         return $uri;
-    }
-
-    /**
-     * Resolves a URI
-     *
-     * @param string $uri Absolute or relative
-     * @param string $baseUri Optional base URI
-     * @return string
-     */
-    public function resolve($uri, $baseUri = null)
-    {
-        $components = $this->parse($uri);
-        $path = $components['path'];
-
-        if ((array_key_exists('scheme', $components)) && ('http' === $components['scheme'])) {
-            return $uri;
-        }
-
-        $baseComponents = $this->parse($baseUri);
-        $basePath = $baseComponents['path'];
-
-        $baseComponents['path'] = UriResolver::combineRelativePathWithBasePath($path, $basePath);
-
-        return $this->generate($baseComponents);
     }
 
     /**
