@@ -457,11 +457,13 @@ class RefResolverCircularTest extends PHPUnit_Framework_TestCase
                         "type":"object",
                         "definitions": {
                             "foo":{
-                                "$ref":"/schema3.json#/definitions/zoopla"
+                                "$ref":"/schema3.json#/definitions/zorro"
                             },
                             "norro": {
                                 "peddle": {
-                                     "this" : "Reffered to value"
+                                     "bar": {
+                                         "this" : "Reffered to value"
+                                     }
                                 }
                             }
                         }
@@ -469,10 +471,8 @@ class RefResolverCircularTest extends PHPUnit_Framework_TestCase
                     '/schema3.json' => '{
                         "type":"object",
                         "definitions": {
-                            "zoopla":{
-                                "bar": {
-                                    "$ref": "/schema1.json#/definitions/zoo/peddle"
-                                }
+                            "zorro":{
+                                "$ref": "/schema1.json#/definitions/zoo/peddle"
                             }
                         }
                     }'
@@ -486,7 +486,9 @@ class RefResolverCircularTest extends PHPUnit_Framework_TestCase
                         },
                         "zoo": {
                             "peddle": {
-                                "this" : "Reffered to value"
+                                "bar": {
+                                    "this" : "Reffered to value"
+                                }
                             }
                         }
                     },
