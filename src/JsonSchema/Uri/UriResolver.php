@@ -87,7 +87,7 @@ class UriResolver
         $parts = $this->parse($uri);
 
         if (isset($parts['fragment'])) {
-            $fragment = $this->build(array('fragment' => $parts['fragment']));
+            $fragment = $parts['fragment'];
         } else {
             $fragment = null;
         }
