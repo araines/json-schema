@@ -9,6 +9,7 @@
 
 namespace JsonSchema;
 
+use JsonSchema\Exception\InvalidArgumentException;
 use JsonSchema\Exception\JsonDecodingException;
 use JsonSchema\Uri\Retrievers\UriRetrieverInterface;
 use JsonSchema\Uri\UriRetriever;
@@ -40,6 +41,11 @@ class RefResolver
     protected $scopes = array();
 
     /**
+     * @var array
+     */
+    protected $references = array();
+
+    /**
      * @param UriRetriever $retriever
      */
     public function __construct($retriever = null)
@@ -60,9 +66,8 @@ class RefResolver
         $resolver = new UriResolver();
         $uri = $resolver->resolve($ref, $sourceUri);
 
-        // Split in to location and fragment
+        // Get the location
         $location = $resolver->extractLocation($uri);
-        $fragment = $resolver->extractFragment($uri);
 
         // Retrieve dereferenced schema
         if ($location == null) {
@@ -77,6 +82,9 @@ class RefResolver
             $this->resolve($schema, $location);
         }
 
+        return $schema;
+
+        /*
         // Resolve JSON pointer
         $retriever = $this->getUriRetriever();
         $object = $retriever->resolvePointer($schema, $fragment);
@@ -86,6 +94,7 @@ class RefResolver
         }
 
         return $object;
+        */
     }
 
     /**
@@ -119,6 +128,21 @@ class RefResolver
      */
     public function resolve($schema, $sourceUri = null)
     {
+        $this->findReferences($schema, $sourceUri);
+        $this->resolveReferences();
+    }
+
+    private function resolveReferences()
+    {
+        while ($reference = array_shift($this->references)) {
+            if ($reference instanceof Reference) {
+                $reference->resolve();
+            }
+        }
+    }
+
+    private function findReferences(& $schema, $sourceUri = null)
+    {
         if (!is_object($schema)) {
             return;
         }
@@ -149,8 +173,8 @@ class RefResolver
             $this->resolveObjectOfSchemas($schema, $propertyName, $scope);
         }
 
-        // Resolve $ref
-        $this->resolveRef($schema, $scope);
+        // Create Reference object if we have a $ref
+        $this->createRef($schema, $scope);
 
         // Pop back out of our scope
         $this->leaveResolutionScope();
@@ -170,6 +194,7 @@ class RefResolver
         if (count($this->scopes) === 0) {
             $this->scopes[] = self::SELF_REF_LOCATION;
             $this->schemas[self::SELF_REF_LOCATION] = $schemaPartial;
+            $this->schemas[$sourceUri] = $schemaPartial;
         }
 
         if (!empty($schemaPartial->id)) {
@@ -198,14 +223,14 @@ class RefResolver
      * @param string $propertyName Property to work on
      * @param string $sourceUri    URI where this schema was located
      */
-    public function resolveArrayOfSchemas($schema, $propertyName, $sourceUri)
+    public function resolveArrayOfSchemas(& $schema, $propertyName, $sourceUri)
     {
         if (! isset($schema->$propertyName) || ! is_array($schema->$propertyName)) {
             return;
         }
 
-        foreach ($schema->$propertyName as $possiblySchema) {
-            $this->resolve($possiblySchema, $sourceUri);
+        foreach ($schema->$propertyName as & $possiblySchema) {
+            $this->findReferences($possiblySchema, $sourceUri);
         }
     }
 
@@ -223,8 +248,8 @@ class RefResolver
             return;
         }
 
-        foreach (get_object_vars($schema->$propertyName) as $possiblySchema) {
-            $this->resolve($possiblySchema, $sourceUri);
+        foreach ($schema->$propertyName as & $possiblySchema) {
+            $this->findReferences($possiblySchema, $sourceUri);
         }
     }
 
@@ -242,39 +267,32 @@ class RefResolver
             return;
         }
 
-        $this->resolve($schema->$propertyName, $sourceUri);
+        $this->findReferences($schema->$propertyName, $sourceUri);
     }
 
     /**
-     * Look for the $ref property in the object.  If found, remove the
-     * reference and augment this object with the contents of another
-     * schema.
+     * Look for the $ref property in the object.  If found, create a reference to be resolved later.
      *
      * @param object $schema    JSON Schema to flesh out
      * @param string $sourceUri URI where this schema was located
+     * @return Reference|null
      */
-    public function resolveRef($schema, $sourceUri)
+    public function createRef(& $schema, $sourceUri)
     {
-        $ref = '$ref';
+        try {
+            $reference = new Reference($this, $sourceUri, $schema);
+        } catch (InvalidArgumentException $ex) {
+            if ('Not a reference' == $ex->getMessage()) {
+                // Ok, this is not a reference
+                return null;
+            }
 
-        if (empty($schema->$ref)) {
-            return;
+            throw $ex;
         }
 
-        // Retrieve the referenced schema
-        $uri = $schema->$ref;
-        $refSchema = $this->fetchRef($schema->$ref, $sourceUri, $schema);
+        $this->references[] = $reference;
 
-        // Remove the reference node
-        unset($schema->$ref);
-
-        // Augment the properties (FIXME this is a bit naive and might need fixing)
-        foreach (get_object_vars($refSchema) as $prop => $value) {
-            $schema->$prop = $value;
-        }
-
-        // Check for nested references
-        $this->resolveRef($schema, $sourceUri);
+        return $reference;
     }
 
     /**
