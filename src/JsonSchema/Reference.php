@@ -10,13 +10,14 @@ use JsonSchema\Uri\UriResolver;
 /**
  * This is a value class representing a `$ref` reference in a JSON schema
  *
- * We also resolve JSON Pointers (RFC 6901) in the references
+ * We resolve JSON Pointers (RFC 6901) in the references
  */
 class Reference
 {
     const EMPTY_ELEMENT = '_empty_';
     const LAST_ELEMENT = '-';
     const SEPARATOR = '/';
+    const TILDE = '~';
 
     const REF = '$ref';
 
@@ -61,7 +62,9 @@ class Reference
     private $uri;
 
     /**
-     * @var The URI of the schema where the reference was found
+     * The URI of the schema where the reference was found
+     *
+     * @var string
      */
     private $sourceUri;
 
@@ -128,9 +131,8 @@ class Reference
         $this->parts = [];
 
         if (!empty($this->refString)) {
-            // This call will set $this->uri
-            $pointer = $this->parseAndValidateRefString();
-            $this->parts = array_slice($this->decodeParts(explode('/', $pointer)), 1);
+            $pointer = $this->parseAndValidateRefString(); // This call will set $this->uri
+            $this->parts = $this->decodePointer($pointer);
         }
 
         $this->state = static::STATE_UNRESOLEVED;
@@ -138,8 +140,16 @@ class Reference
 
     private function doResolve()
     {
-        // It is important to finish fetching the schema before we change the state 
+        // It is important to finish fetching the schema before we change the state.
+        // (So that when fetching a schema the resolving of this reference might be suspended
+        // in order to resolve other references first.)
         $schema = $this->fetchSchema();
+
+        // Check if this reference has already been resolved by another call to resolve
+        if (static::STATE_RESOLVED == $this->state) {
+            // just return the resolved object
+            return $this->referencedObject;
+        }
         
         // Now we start to resolve the reference, and we change the state
         $this->state = static::STATE_RESOLVING;
@@ -167,7 +177,6 @@ class Reference
      * Recurse through $schema until location described by $parts is found.
      *
      * @param mixed  $schema The json document.
-     * @param string $schema The original json pointer.
      * @param array  $parts  The (remaining) parts of the pointer.
      *
      * @throws ResourceNotFoundException
@@ -176,7 +185,7 @@ class Reference
      */
     private function doResolvePointer($schema, $parts)
     {
-        // Resolve any other schema in path
+        // Resolve any other schema in the path
         if ($schema instanceof static) {
             $schema = $schema->resolve();
         }
@@ -218,16 +227,18 @@ class Reference
      */
     private function parseAndValidateRefString()
     {
-        if ($this->refString !== '' && !is_string($this->refString)) {
+        if (!is_string($this->refString)) {
             throw new InvalidPointerException('Reference is not a string');
         }
 
         $resolver = new UriResolver();
         $this->uri = $resolver->extractLocation($this->refString);
+
+        // Extract the pointer
         $pointer = $resolver->extractFragment($this->refString);
 
         if (!$pointer) {
-            return '';
+            return ''; // Converting null to empty string
         }
 
         if (!is_string($pointer)) {
@@ -237,28 +248,31 @@ class Reference
         $firstCharacter = substr($pointer, 0, 1);
 
         if ($firstCharacter !== self::SEPARATOR) {
-            throw new InvalidPointerException('Pointer starts with invalid character ' . $firstCharacter);
+            throw new InvalidPointerException('Pointer starts with invalid first character ' . $firstCharacter);
         }
 
         return $pointer;
     }
 
     /**
-     * Decode any escaped sequences.
+     * Split a pointer into parts and decode any escaped sequences.
      *
-     * @param array $parts The json pointer parts.
+     * @param $pointer string The pointer of the reference (the part after the #)
      *
-     * @return array
+     * @return array $parts
      */
-    private function decodeParts(array $parts)
+    private function decodePointer($pointer)
     {
+        $parts = array_slice(explode(self::SEPARATOR, $pointer), 1);
+
         $mappings = array(
-            '~1' => '/',
-            '~0' => '~',
+            '~1' => self::SEPARATOR,
+            '~0' => self::TILDE,
         );
 
         foreach ($parts as &$part) {
-            $part = strtr(urldecode($part), $mappings);
+            $part = strtr($part, $mappings);
+            $part = urldecode($part);
         }
 
         return $parts;
