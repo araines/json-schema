@@ -154,7 +154,7 @@ class RefResolverTest extends \PHPUnit_Framework_TestCase
                 'this was' => array('added', 'because'),
                 'the' => (object) array('$ref resolved' => true)
             )));
-        $resolver->resolveRef($input, 'http://example.com');
+        $resolver->resolve($input, 'http://example.com');
         $this->assertEquals($expected, $input);
     }
 
