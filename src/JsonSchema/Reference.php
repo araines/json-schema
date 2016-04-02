@@ -112,18 +112,38 @@ class Reference
         }
     }
 
+    /**
+     * Check if the given object is a reference
+     *
+     * @param $object
+     * @return bool
+     */
+    public static function isReference($object)
+    {
+        if (!is_object($object)) {
+            return false;
+        }
+
+        $ref = static::REF;
+        if (!property_exists($object, $ref)) {
+            return false;
+        }
+
+        if (empty($object->$ref)) {
+            return false;
+        }
+
+        return true;
+    }
+
     private function parseReferencedObject()
     {
-        if (!is_object($this->referencedObject)) {
-            throw new InvalidArgumentException('Not an object');
+        if (!static::isReference($this->referencedObject)) {
+            throw new InvalidArgumentException('Not a reference');
         }
 
         $ref = static::REF;
         $originalObject = $this->referencedObject;
-
-        if (!property_exists($originalObject, $ref)) {
-            throw new InvalidArgumentException('Not a reference');
-        }
 
         $this->referencedObject = $this; // Temporarily replace with this until the reference is resolved
 
