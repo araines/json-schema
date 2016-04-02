@@ -9,8 +9,6 @@
 
 namespace JsonSchema;
 
-use JsonSchema\Exception\InvalidArgumentException;
-use JsonSchema\Exception\JsonDecodingException;
 use JsonSchema\Uri\Retrievers\UriRetrieverInterface;
 use JsonSchema\Uri\UriRetriever;
 use JsonSchema\Uri\UriResolver;
