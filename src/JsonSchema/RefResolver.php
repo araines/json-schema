@@ -66,35 +66,37 @@ class RefResolver
         $resolver = new UriResolver();
         $uri = $resolver->resolve($ref, $sourceUri);
 
-        // Get the location
-        $location = $resolver->extractLocation($uri);
-
-        // Retrieve dereferenced schema
-        if ($location == null) {
-            $schema = $this->schemas[self::SELF_REF_LOCATION];
-        } elseif (array_key_exists($location, $this->schemas)) {
-            $schema = $this->schemas[$location];
+        // Extract the pointer
+        $pointer = $resolver->extractFragment($uri);
+        if ($pointer) {
+            $schema = (object)[
+                '$ref' => $uri
+            ];
+            $reference = new Reference($this, null, $schema);
+            $reference->resolve();
         } else {
-            $retriever = $this->getUriRetriever();
-            $schema = $retriever->retrieve($location);
+            // Get the location
+            $location = $resolver->extractLocation($uri);
 
-            $this->schemas[$location] = $schema;
-            $this->resolve($schema, $location);
+            // Retrieve dereferenced schema
+            if ($location == null) {
+                $schema = $this->schemas[self::SELF_REF_LOCATION];
+            } elseif (array_key_exists($location, $this->schemas)) {
+                $schema = $this->schemas[$location];
+            } else {
+                $retriever = $this->getUriRetriever();
+                $schema = $retriever->retrieve($location);
+
+                $this->schemas[$location] = $schema;
+                $this->resolve($schema, $location);
+            }
+        }
+
+        if ($schema instanceof \stdClass) {
+            $schema->id = $uri;
         }
 
         return $schema;
-
-        /*
-        // Resolve JSON pointer
-        $retriever = $this->getUriRetriever();
-        $object = $retriever->resolvePointer($schema, $fragment);
-
-        if ($object instanceof \stdClass) {
-            $object->id = $uri;
-        }
-
-        return $object;
-        */
     }
 
     /**
@@ -126,7 +128,7 @@ class RefResolver
      * @param object $schema    JSON Schema to flesh out
      * @param string $sourceUri URI where this schema was located
      */
-    public function resolve($schema, $sourceUri = null)
+    public function resolve(& $schema, $sourceUri = null)
     {
         $this->findReferences($schema, $sourceUri);
         $this->resolveReferences();
@@ -147,13 +149,14 @@ class RefResolver
             return;
         }
 
-        // Fill in id property
-        if ($sourceUri) {
-            $schema->id = $sourceUri;
-        }
-
         // First determine our resolution scope
         $scope = $this->enterResolutionScope($schema, $sourceUri);
+
+        // Create Reference object if we have a $ref
+        if (Reference::isReference($schema)) {
+            $this->createRef($schema, $scope);
+            return;
+        }
 
         // These properties are just schemas
         // eg.  items can be a schema or an array of schemas
@@ -172,9 +175,6 @@ class RefResolver
         foreach (array('definitions', 'dependencies', 'patternProperties', 'properties') as $propertyName) {
             $this->resolveObjectOfSchemas($schema, $propertyName, $scope);
         }
-
-        // Create Reference object if we have a $ref
-        $this->createRef($schema, $scope);
 
         // Pop back out of our scope
         $this->leaveResolutionScope();
@@ -271,25 +271,16 @@ class RefResolver
     }
 
     /**
-     * Look for the $ref property in the object.  If found, create a reference to be resolved later.
+     * We got a $ref property in the object.
+     * Create a reference to be resolved later.
      *
      * @param object $schema    JSON Schema to flesh out
      * @param string $sourceUri URI where this schema was located
-     * @return Reference|null
+     * @return Reference
      */
     public function createRef(& $schema, $sourceUri)
     {
-        try {
-            $reference = new Reference($this, $sourceUri, $schema);
-        } catch (InvalidArgumentException $ex) {
-            if ('Not a reference' == $ex->getMessage()) {
-                // Ok, this is not a reference
-                return null;
-            }
-
-            throw $ex;
-        }
-
+        $reference = new Reference($this, $sourceUri, $schema);
         $this->references[] = $reference;
 
         return $reference;
@@ -306,20 +297,5 @@ class RefResolver
         $this->uriRetriever = $retriever;
 
         return $this;
-    }
-
-    protected function resolveRefSegment($data, $pathParts)
-    {
-        foreach ($pathParts as $path) {
-            $path = strtr($path, array('~1' => '/', '~0' => '~', '%25' => '%'));
-
-            if (is_array($data)) {
-                $data = $data[$path];
-            } else {
-                $data = $data->{$path};
-            }
-        }
-
-        return $data;
     }
 }
