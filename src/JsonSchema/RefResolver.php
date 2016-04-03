@@ -150,12 +150,6 @@ class RefResolver
         // First determine our resolution scope
         $scope = $this->enterResolutionScope($schema, $sourceUri);
 
-        // Create Reference object if we have a $ref
-        if (Reference::isReference($schema)) {
-            $this->createRef($schema, $scope);
-            return;
-        }
-
         // These properties are just schemas
         // eg.  items can be a schema or an array of schemas
         foreach (array('additionalItems', 'additionalProperties', 'extends', 'items') as $propertyName) {
@@ -172,6 +166,11 @@ class RefResolver
         // These are all objects containing properties whose values are schemas
         foreach (array('definitions', 'dependencies', 'patternProperties', 'properties') as $propertyName) {
             $this->resolveObjectOfSchemas($schema, $propertyName, $scope);
+        }
+
+        // Create Reference object if we have a $ref
+        if (Reference::isReference($schema)) {
+            $this->createRef($schema, $scope);
         }
 
         // Pop back out of our scope
