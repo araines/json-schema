@@ -37,7 +37,7 @@ class UriResolverTest extends \PHPUnit_Framework_TestCase
             'With Fragment' => array(
                 'http://example.org/path/to/file.json#foo',
                 'http://example.org/path/to/file.json',
-                '#foo',
+                'foo',
             ),
         );
     }
@@ -107,4 +107,3 @@ class UriResolverTest extends \PHPUnit_Framework_TestCase
         );
     }
 }
-?>
